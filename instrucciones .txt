@@ -1,0 +1,435 @@
+El diseño de nuestra zona de trabajo debe tener esta
+estructura
+
+
+cli_panel/                <- 📁 Carpeta raíz del proyecto
+│
+├── main.py               <- 📄 Archivo principal del panel CLI
+│
+├── utils/                <- 📁 Carpeta para funciones auxiliares
+│   └── db.py             <- 📄 Archivo para gestionar tareas
+│
+└── scripts/              <- 📁 Carpeta para scripts bash
+    └── launch.sh         <- 📄 Script para lanzar el panel
+
+
+Puedes crear esto de manera manual con con la terminal usando los siguientes comandos:
+
+    mkdir -p cli_panel/utils cli_panel/scripts
+    touch cli_panel/main.py cli_panel/utils/db.py cli_panel/scripts/launch.sh
+
+
+Ahora una vez tengamos la estructura empezamos con el codigo del "main.py"
+        #!/usr/bin/env python3
+
+        from rich.console import Console
+        from rich.prompt import Prompt
+
+        console = Console()
+
+        def main():
+            while True:
+                console.print("\n[bold cyan]Panel CLI - Control Rápido[/bold cyan]")
+                console.print("1. Ver estado del sistema")
+                console.print("2. Añadir tarea")
+                console.print("3. Ver tareas")
+                console.print("4. Eliminar tarea")
+                console.print("5. Ejecutar script favorito")
+                console.print("6. Salir")
+
+                opcion = Prompt.ask("Selecciona una opción", choices=["1", "2", "3", "4", "5", "6"])
+
+                if opcion == "6":
+                    console.print("\n[green]Saliendo del panel...[/green]")
+                    break
+
+        if __name__ == "__main__":
+            main()
+
+Con esto hemos conseguido un menu funcional pero que aun no puede hacer nada cuando selecionemos las opciones
+excepto la opcion 6 que es el "break" para Salir.
+
+
+Si aparece el error "reportMissingImports de Pylance"
+    Al iniciar el script el error puede salir por estas dos primeras lineas de comandos
+        from rich.console import Console
+        from rich.prompt import Prompt
+
+Solucion:
+       
+    Abre la terminal dentro del proyecto y ejecuta:
+        pip install rich psutil
+    
+    Activar el entorno virtual env
+        source venv/bin/activate
+    
+    En el VS Code Selecciona el entorno que corresponde a tu proyecto 
+        (normalmente dentro de cli_dashboard/venv)
+    Después de eso, los errores deberían desaparecer.
+
+Si persisten escribeme
+
+
+Implementar la opción 1 – Ver estado del sistema (CPU, RAM, disco)
+    Añade esto dentro de main.py, encima de def main():
+
+        import psutil
+
+    def ver_estado_sistema():
+        cpu = psutil.cpu_percent(interval=1)
+        ram = psutil.virtual_memory().percent
+        disco = psutil.disk_usage("/").percent
+
+        console.print(f"\n[bold yellow]Estado del Sistema:[/bold yellow]")
+        console.print(f"[cyan]CPU:[/cyan] {cpu}%")
+        console.print(f"[cyan]RAM:[/cyan] {ram}%")
+        console.print(f"[cyan]Disco:[/cyan] {disco}%")
+
+    Reemplaza este bloque:
+    
+        if opcion == "6":
+            console.print("\n[green]Saliendo del panel...[/green]")
+            break
+    
+    Por este otro:
+
+        if opcion == "1":
+            ver_estado_sistema()
+        elif opcion == "6":
+            console.print("\n[green]Saliendo del panel...[/green]")
+            break
+
+Ahora crearemos el sistema simple de tareas usando un archivo JSON. 
+Más adelante, opcional aunque yo lo hare, lo migramos a SQLite.
+
+En el archivo "db.py" de la carpeta "utils"
+Escribimos el siguiente codigo:
+
+        import os
+        import json
+
+        RUTA_TAREAS = "tareas.json"
+
+        def cargar_tareas():
+            if not os.path.exists(RUTA_TAREAS):
+                return []
+            with open(RUTA_TAREAS, "r") as archivo:
+                return json.load(archivo)
+
+        def guardar_tareas(tareas):
+            with open(RUTA_TAREAS, "w") as archivo:
+                json.dump(tareas, archivo, indent=2)
+
+        def añadir_tarea(tarea):
+            tareas = cargar_tareas()
+            tareas.append(tarea)
+            guardar_tareas(tareas)
+
+        def listar_tareas():
+            return cargar_tareas()
+
+        def eliminar_tarea(indice):
+            tareas = cargar_tareas()
+            if 0 <= indice < len(tareas):
+                tareas.pop(indice)
+                guardar_tareas(tareas)
+                return True
+            return False
+
+Este módulo se encargará de:
+
+	- Añadir tareas
+	- Listarlas
+	- Eliminar por índice
+
+Conectar la gestión de tareas (opciones 2, 3 y 4) en main.py
+
+Vamos a hacer que el menú pueda:
+
+	- Añadir una tarea (2)
+	- Listarlas (3)
+	- Eliminar por índice (4)
+
+Asi que ahora en el "main.py" importamos la siguiente funcion:
+
+        from utils.db import añadir_tarea, listar_tareas, eliminar_tarea
+
+Dentro del "while true" del "main.py" añadimos:
+
+        if opcion == "1":
+            ver_estado_sistema()
+
+        elif opcion == "2":
+            tarea = Prompt.ask("Escribe la nueva tarea")
+            añadir_tarea(tarea)
+            console.print("[green]Tarea añadida correctamente[/green]")
+
+        elif opcion == "3":
+            tareas = listar_tareas()
+            if not tareas:
+                console.print("[yellow]No hay tareas[/yellow]")
+            else:
+                for i, t in enumerate(tareas):
+                    console.print(f"[{i}] {t}")
+
+        elif opcion == "4":
+            tareas = listar_tareas()
+            if not tareas:
+                console.print("[yellow]No hay tareas para eliminar[/yellow]")
+            else:
+                for i, t in enumerate(tareas):
+                    console.print(f"[{i}] {t}")
+                idx = int(Prompt.ask("Elige el número de tarea a eliminar"))
+                if eliminar_tarea(idx):
+                    console.print("[green]Tarea eliminada[/green]")
+                else:
+                    console.print("[red]Índice inválido[/red]")
+
+        elif opcion == "6":
+            console.print("\n[green]Saliendo del panel...[/green]")
+            break
+
+if __name__ == "__main__":
+    main()
+
+Recuerda seguir la estructura con las tabulaciones y separaciones que yo estoy usando
+
+Esto hace que el sistema de tareas funcione 100% usando db.py
+
+Crear y configurar el script de lanzamiento – scripts/launch.sh
+
+Este script permitirá ejecutar el panel desde terminal con un solo comando.
+    (Luego añadiremos la posibilidad de crear un archivo ejecutable
+        para no tener que usar comandos en la terminal para activar)
+
+Contenido del "launch.sh" en la carpeta "scripts"
+
+        #!/bin/bash
+
+        clear
+        echo "🔧 Iniciando Panel CLI..."
+        python3 "$(dirname "$0")/../main.py"
+
+Una vez lo hayamos guardado le damos permisos de ejecución con este comando
+    en el terminal del proyecto escribimos esto
+        chmod +x scripts/launch.sh
+
+Y para ejecutar el script "launch.sh" escribimos en el terminal:
+        ./scripts/launch.sh
+
+
+Añadir sistema de scripts favoritos
+
+Guardaremos los comandos en un archivo scripts.json, y el usuario podrá ejecutarlos escribiendo su nombre.
+        Crea un archivo en la raíz llamado "scripts.json"
+        Nosotros añadiremos este contenido de ejemplo dentro del archivo
+
+            {
+                "htop": "htop",
+                "Abrir hosts": "sudo nano /etc/hosts",
+                "Ver fecha": "date"
+            }           
+
+        Puedes poner cualquier comando Bash ahí.
+
+Ahora añade al final de main.py esta función:
+
+import json
+import subprocess
+
+def ejecutar_script():
+    if not os.path.exists("scripts.json"):
+        console.print("[red]No se encontró scripts.json[/red]")
+        return
+
+    with open("scripts.json", "r") as f:
+        scripts = json.load(f)
+
+    console.print("\n[bold cyan]Scripts disponibles:[/bold cyan]")
+    for nombre in scripts:
+        console.print(f"- {nombre}")
+
+    nombre = Prompt.ask("¿Qué script deseas ejecutar?")
+    comando = scripts.get(nombre)
+
+    if comando:
+        console.print(f"[blue]Ejecutando:[/blue] {comando}")
+        subprocess.run(comando, shell=True)
+    else:
+        console.print("[red]Script no encontrado[/red]")
+
+Y en el menú main() agrega esto:
+    Vamos a reemplazar:
+
+        elif opcion == "6":
+
+    por lo siguiente:
+
+        elif opcion == "5":
+            ejecutar_script()
+
+        elif opcion == "6":
+
+Con esto puedes lanzar scripts favoritos definidos en scripts.json.
+
+
+Tu script "main.py" debe tener este aspecto
+
+#!/usr/bin/env python3
+from utils.db import añadir_tarea, listar_tareas, eliminar_tarea
+from rich.console import Console
+from rich.prompt import Prompt
+import psutil
+import os
+import json
+import subprocess
+
+console = Console()
+
+def ver_estado_sistema():
+    cpu = psutil.cpu_percent(interval=1)
+    ram = psutil.virtual_memory().percent
+    disco = psutil.disk_usage("/").percent
+
+    console.print(f"\n[bold yellow]Estado del Sistema:[/bold yellow]")
+    console.print(f"[cyan]CPU:[/cyan] {cpu}%")
+    console.print(f"[cyan]RAM:[/cyan] {ram}%")
+    console.print(f"[cyan]Disco:[/cyan] {disco}%")
+
+def ejecutar_script():
+    if not os.path.exists("scripts.json"):
+        console.print("[red]No se encontró scripts.json[/red]")
+        return
+
+    with open("scripts.json", "r") as f:
+        scripts = json.load(f)
+
+    console.print("\n[bold cyan]Scripts disponibles:[/bold cyan]")
+    for nombre in scripts:
+        console.print(f"- {nombre}")
+
+    nombre = Prompt.ask("¿Qué script deseas ejecutar?")
+    comando = scripts.get(nombre)
+
+    if comando:
+        console.print(f"[blue]Ejecutando:[/blue] {comando}")
+        subprocess.run(comando, shell=True)
+    else:
+        console.print("[red]Script no encontrado[/red]")
+
+def main():
+    while True:
+        console.print("\n[bold cyan]Panel CLI - Control Rápido[/bold cyan]")
+        console.print("1. Ver estado del sistema")
+        console.print("2. Añadir tarea")
+        console.print("3. Ver tareas")
+        console.print("4. Eliminar tarea")
+        console.print("5. Ejecutar script favorito")
+        console.print("6. Salir")
+
+        opcion = Prompt.ask("Selecciona una opción", choices=["1", "2", "3", "4", "5", "6"])
+
+        if opcion == "1":
+            ver_estado_sistema()
+
+        elif opcion == "2":
+            tarea = Prompt.ask("Escribe la nueva tarea")
+            añadir_tarea(tarea)
+            console.print("[green]Tarea añadida correctamente[/green]")
+
+        elif opcion == "3":
+            tareas = listar_tareas()
+            if not tareas:
+                console.print("[yellow]No hay tareas[/yellow]")
+            else:
+                for i, t in enumerate(tareas):
+                    console.print(f"[{i}] {t}")
+
+        elif opcion == "4":
+            tareas = listar_tareas()
+            if not tareas:
+                console.print("[yellow]No hay tareas para eliminar[/yellow]")
+            else:
+                for i, t in enumerate(tareas):
+                    console.print(f"[{i}] {t}")
+                idx = int(Prompt.ask("Elige el número de tarea a eliminar"))
+                if eliminar_tarea(idx):
+                    console.print("[green]Tarea eliminada[/green]")
+                else:
+                    console.print("[red]Índice inválido[/red]")
+
+        elif opcion == "5":
+            ejecutar_script()
+
+        elif opcion == "6":
+            console.print("\n[green]Saliendo del panel...[/green]")
+            break
+
+if __name__ == "__main__":
+    main()
+
+
+La opción para añadir nuevos scripts y eliminarlos del archivo desde el panel seria la siguiente:
+    Reemplaza:
+    
+        console.print("6. Salir")
+    
+    Por esto otro:
+
+        console.print("6. Añadir nuevo script favorito")
+        console.print("7. Eliminar script favorito")
+        console.print("8. Salir")
+
+y al final del elif añade esto entre la opcion 5 y la opcion 7
+
+        elif opcion == "6":
+    nombre = Prompt.ask("Nombre del script (como lo verás en la lista)")
+    comando = Prompt.ask("Comando a ejecutar")
+
+    if not os.path.exists("scripts.json"):
+        with open("scripts.json", "w") as f:
+            json.dump({}, f, indent=2)
+
+    with open("scripts.json", "r") as f:
+        data = json.load(f)
+
+    data[nombre] = comando
+
+    with open("scripts.json", "w") as f:
+        json.dump(data, f, indent=2)
+
+    console.print("[green]Script añadido correctamente[/green]")
+
+    elif opcion == "7":
+    if not os.path.exists("scripts.json"):
+        console.print("[red]No hay scripts para eliminar[/red]")
+    else:
+        with open("scripts.json", "r") as f:
+            data = json.load(f)
+
+        if not data:
+            console.print("[yellow]La lista de scripts está vacía[/yellow]")
+        else:
+            console.print("\n[bold cyan]Scripts disponibles:[/bold cyan]")
+            keys = list(data.keys())
+            for i, name in enumerate(keys):
+                console.print(f"[{i}] {name}")
+
+            idx = int(Prompt.ask("Índice del script a eliminar"))
+            if 0 <= idx < len(keys):
+                eliminado = keys[idx]
+                del data[eliminado]
+                with open("scripts.json", "w") as f:
+                    json.dump(data, f, indent=2)
+                console.print(f"[green]Script '{eliminado}' eliminado correctamente[/green]")
+            else:
+                console.print("[red]Índice no válido[/red]")
+
+
+
+Con esto ahora ya puedes hacer lo siguiente desde el panel:
+
+    - Añadir el nombre descriptivo del script
+	- Especificar el comando real a ejecutar
+	- Guardarlo automáticamente en scripts.json
+

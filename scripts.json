@@ -1,0 +1,6 @@
+{
+  "htop": "htop",
+  "Abrir hosts": "sudo nano /etc/hosts",
+  "Ver fecha": "date",
+  "Exe": "asd"
+}

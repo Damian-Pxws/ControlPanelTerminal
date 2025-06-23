@@ -69,3 +69,5 @@ chmod +x scripts/launch.sh
 
 Este proyecto está licenciado bajo la **Apache 2.0 License**.  
 Consulta el archivo [LICENSE](./LICENSE) para más detalles.
+
+Proyecto Día 2 de 365 días subiendo proyectos – Gestión diaria de proyectos

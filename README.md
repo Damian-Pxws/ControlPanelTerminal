@@ -39,9 +39,9 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Instala dependencias:
+### 3. Instala dependencias desde requirements.txt:
 ```bash
-pip install rich psutil
+pip3 install -r requirements.txt
 ```
 
 ### 4. Da permisos al script de inicio:
